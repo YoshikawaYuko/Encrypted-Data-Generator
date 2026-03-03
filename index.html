@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Encrypted Data Generator (Local)</title>
+    <script src="./crypto-js.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; background: #f4f6f8; }
+        .box { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        textarea { width: 100%; font-family: monospace; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        input { width: 100%; padding: 10px; margin-bottom: 10px; }
+        button { padding: 10px 20px; cursor: pointer; background: #4a90e2; color: white; border: none; border-radius: 4px; font-size: 16px; margin-right: 10px; }
+        button:hover { background: #357abd; }
+        #test-result { margin-top: 10px; font-weight: bold; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Encrypted Data Generator</h1>
+    
+    <div class="box">
+        <h3>1. Confirm Environment</h3>
+        <p>Check encryption library status: <span id="lib-status">...</span></p>
+    </div>
+
+    <div class="box">
+        <h3>2. Enter Password & Data</h3>
+        <input type="text" id="password" placeholder="Set access password">
+        <p>Enter subscription data (JSON format): </p>
+        <textarea id="data" rows="6">
+[
+  { "title": "t", "url": "192.168.*.*" },
+  { "title": "t", "url": "192.168.*.*" }
+]</textarea>
+        <br><br>
+        <button onclick="encrypt()">Generate Encrypted String</button>
+    </div>
+    
+    <div class="box">
+        <h3>3. Result</h3>
+        <textarea id="result" rows="4" readonly onclick="this.select()"></textarea>
+        
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
+            <h4>Self-Check</h4>
+            <p>Try decrypting the string you just generated with the password above to ensure the data is intact.</p>
+            <button onclick="testDecrypt()" style="background: #666;">Test Decryption</button>
+            <div id="test-result"></div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const status = document.getElementById('lib-status');
+            if (typeof CryptoJS === 'undefined') {
+                status.innerHTML = "❌ Check whether crypto-js.min.js is in library.";
+                status.className = "error";
+            } else {
+                status.innerHTML = "✅ Library available";
+                status.className = "success";
+            }
+        };
+
+        function encrypt() {
+            const pwd = document.getElementById('password').value;
+            const data = document.getElementById('data').value;
+            if(!pwd) return alert("❌ Lack of password");
+            
+            try {
+                const encrypted = CryptoJS.AES.encrypt(data, pwd).toString();
+                document.getElementById('result').value = encrypted;
+                
+                document.getElementById('test-result').innerHTML = "✅ Success";
+                document.getElementById('test-result').className = "success";
+            } catch(e) {
+                alert("Failed: " + e.message);
+            }
+        }
+
+        function testDecrypt() {
+            const pwd = document.getElementById('password').value;
+            const encrypted = document.getElementById('result').value;
+            const output = document.getElementById('test-result');
+
+            if (!encrypted) return alert("Generate code first");
+
+            try {
+                const bytes = CryptoJS.AES.decrypt(encrypted, pwd);
+                const originalText = bytes.toString(CryptoJS.enc.Utf8);
+
+                if (originalText.startsWith("[")) {
+                    output.innerHTML = "✅ Success! Available JSON format.";
+                    output.className = "success";
+                } else {
+                    output.innerHTML = "❌ Incorrect JSON format.";
+                    output.className = "error";
+                }
+            } catch (e) {
+                output.innerHTML = "❌ Totally failed: " + e.message;
+                output.className = "error";
+            }
+        }
+    </script>
+</body>
+</html>
