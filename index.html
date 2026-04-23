@@ -2,48 +2,59 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Encrypted Data Generator (Local)</title>
+    <title>Admin Tools (Local Only)</title>
     <script src="./crypto-js.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; background: #f4f6f8; }
         .box { background: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        textarea { width: 100%; font-family: monospace; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        input { width: 100%; padding: 10px; margin-bottom: 10px; }
-        button { padding: 10px 20px; cursor: pointer; background: #4a90e2; color: white; border: none; border-radius: 4px; font-size: 16px; margin-right: 10px; }
+        textarea { width: 100%; font-family: monospace; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        input[type=text], input[type=password] { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        button { padding: 10px 20px; cursor: pointer; background: #4a90e2; color: white; border: none; border-radius: 4px; font-size: 15px; margin-right: 10px; }
         button:hover { background: #357abd; }
-        #test-result { margin-top: 10px; font-weight: bold; }
-        .success { color: green; }
-        .error { color: red; }
+        .result-box { background: #f1f3f4; padding: 12px; border-radius: 4px; font-family: monospace; word-break: break-all; border: 1px solid #ddd; margin-top: 10px; font-size: 13px; cursor: pointer; }
+        .success { color: green; font-weight: bold; margin-top: 8px; }
+        .error { color: red; font-weight: bold; margin-top: 8px; }
+        h2 { margin-top: 0; border-bottom: 2px solid #e0e0e0; padding-bottom: 8px; }
+        .step { color: #888; font-size: 13px; margin-bottom: 6px; }
     </style>
 </head>
 <body>
-    <h1>Encrypted Data Generator</h1>
-    
+    <h1>🛠️ Admin Tools <small style="font-size:14px;color:#888;">(DO NOT upload to public network)</small></h1>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- 1. Password Hash Generator                     -->
+    <!-- ══════════════════════════════════════════════ -->
     <div class="box">
-        <h3>1. Confirm Environment</h3>
-        <p>Check encryption library status: <span id="lib-status">...</span></p>
+        <h2>1. Password Hash Generator（for renewing config.json）</h2>
+        <p class="step">Input new password → click to generate → copy Hash → Paste to GitHub Repo config.json passwordHash</p>
+        <input type="password" id="new-password" placeholder="New Password">
+        <button onclick="generateHash()">Generate SHA-256 Hash</button>
+        <div class="step" style="margin-top:12px;">Generated Hash（Click the text box to copy）：</div>
+        <div class="result-box" id="hash-result" onclick="copyHash()">(Result)</div>
+        <div id="hash-status"></div>
     </div>
 
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- 2. CryptoJS Encrypt (legacy, kept for reference) -->
+    <!-- ══════════════════════════════════════════════ -->
     <div class="box">
-        <h3>2. Enter Password & Data</h3>
+        <h2>2. AES CryptoJS Encrypt (legacy, kept for reference)</h2>
+        <p class="step">Check encryption library: <span id="lib-status">...</span></p>
         <input type="text" id="password" placeholder="Set access password">
-        <p>Enter subscription data (JSON format): </p>
+        <p>Enter subscription data (JSON format):</p>
         <textarea id="data" rows="6">
 [
-  { "title": "t", "url": "192.168.*.*" },
-  { "title": "t", "url": "192.168.*.*" }
+  { "title": "Latest", "url": "https://example.com/sub.yaml" }
 ]</textarea>
         <br><br>
         <button onclick="encrypt()">Generate Encrypted String</button>
     </div>
-    
+
     <div class="box">
-        <h3>3. Result</h3>
+        <h2>Result</h2>
         <textarea id="result" rows="4" readonly onclick="this.select()"></textarea>
-        
         <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
             <h4>Self-Check</h4>
-            <p>Try decrypting the string you just generated with the password above to ensure the data is intact.</p>
             <button onclick="testDecrypt()" style="background: #666;">Test Decryption</button>
             <div id="test-result"></div>
         </div>
@@ -53,27 +64,46 @@
         window.onload = function() {
             const status = document.getElementById('lib-status');
             if (typeof CryptoJS === 'undefined') {
-                status.innerHTML = "❌ Check whether crypto-js.min.js is in library.";
-                status.className = "error";
+                status.innerHTML = '<span style="color:red">❌ crypto-js.min.js not found</span>';
             } else {
-                status.innerHTML = "✅ Library available";
-                status.className = "success";
+                status.innerHTML = '<span style="color:green">✅ Loaded</span>';
             }
         };
+
+        async function generateHash() {
+            const pwd = document.getElementById('new-password').value;
+            const statusEl = document.getElementById('hash-status');
+            if (!pwd) {
+                statusEl.innerHTML = '<span class="error">❌ Please type in password</span>';
+                return;
+            }
+            const encoded = new TextEncoder().encode(pwd);
+            const hashBuf = await crypto.subtle.digest('SHA-256', encoded);
+            const hashHex = Array.from(new Uint8Array(hashBuf))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+            document.getElementById('hash-result').textContent = hashHex;
+            statusEl.innerHTML = '<span class="success">✅ Success! Click the input box to copy</span>';
+        }
+
+        function copyHash() {
+            const text = document.getElementById('hash-result').textContent;
+            if (text === '(Result)') return;
+            navigator.clipboard.writeText(text).then(() => {
+                document.getElementById('hash-status').innerHTML = '<span class="success">✅ Copied to clipboard</span>';
+            });
+        }
 
         function encrypt() {
             const pwd = document.getElementById('password').value;
             const data = document.getElementById('data').value;
-            if(!pwd) return alert("❌ Lack of password");
-            
+            if (!pwd) return alert('❌ Lack of password');
             try {
                 const encrypted = CryptoJS.AES.encrypt(data, pwd).toString();
                 document.getElementById('result').value = encrypted;
-                
-                document.getElementById('test-result').innerHTML = "✅ Success";
-                document.getElementById('test-result').className = "success";
+                document.getElementById('test-result').innerHTML = '<span class="success">✅ Success</span>';
             } catch(e) {
-                alert("Failed: " + e.message);
+                alert('Failed: ' + e.message);
             }
         }
 
@@ -81,23 +111,17 @@
             const pwd = document.getElementById('password').value;
             const encrypted = document.getElementById('result').value;
             const output = document.getElementById('test-result');
-
-            if (!encrypted) return alert("Generate code first");
-
+            if (!encrypted) return alert('Generate code first');
             try {
                 const bytes = CryptoJS.AES.decrypt(encrypted, pwd);
                 const originalText = bytes.toString(CryptoJS.enc.Utf8);
-
-                if (originalText.startsWith("[")) {
-                    output.innerHTML = "✅ Success! Available JSON format.";
-                    output.className = "success";
+                if (originalText.startsWith('[')) {
+                    output.innerHTML = '<span class="success">✅ Success! Valid JSON.</span>';
                 } else {
-                    output.innerHTML = "❌ Incorrect JSON format.";
-                    output.className = "error";
+                    output.innerHTML = '<span class="error">❌ Incorrect JSON format.</span>';
                 }
             } catch (e) {
-                output.innerHTML = "❌ Totally failed: " + e.message;
-                output.className = "error";
+                output.innerHTML = '<span class="error">❌ Failed: ' + e.message + '</span>';
             }
         }
     </script>
